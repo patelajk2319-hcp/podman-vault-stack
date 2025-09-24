@@ -185,9 +185,6 @@ tasks:
     preconditions:
       - test -x ./scripts/elk/fleet/30_vault-elk-integration.sh
     cmds:
-      - sleep 10
+      - sleep 60
       - ./scripts/elk/fleet/30_vault-elk-integration.sh
-
-
-
-    
+      - sleep 60

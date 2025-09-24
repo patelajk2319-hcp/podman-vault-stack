@@ -13,6 +13,7 @@ vault operator unseal $(cat vault-init.json | jq -r '.unseal_keys_b64[0]')
 vault operator unseal $(cat vault-init.json | jq -r '.unseal_keys_b64[1]')
 vault operator unseal $(cat vault-init.json | jq -r '.unseal_keys_b64[2]')
 vault status
-vault audit enable -path="audit_log" file file_path=/vault/logs/vault_audit.log
+# Elastic Agent needs 644 permissions (owner read/write, group/others read) to collect logs
+vault audit enable -path="audit_log" file file_path=/vault/logs/vault_audit.log mode=644
 vault audit enable -path="audit_stdout" file file_path=stdout
 echo "Vault initialised, unsealed and audit logs enabled"

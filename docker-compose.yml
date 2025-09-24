@@ -273,8 +273,6 @@ services:
     depends_on:
       fleet-server:
         condition: service_started
-      vault-permissions:  # Wait for permission fix to complete
-        condition: service_completed_successfully
     volumes:
       - elastic-agent-data:/usr/share/elastic-agent/state
       - vault-logs:/mnt/vault-logs:ro         # Vault operational logs
@@ -284,29 +282,6 @@ services:
       - FLEET_URL=http://fleet-server:8220
       - FLEET_INSECURE=true
       - ELASTIC_AGENT_LOG_LEVEL=debug  # ADDED: For better debugging
-
-    
-  # Vault creates audit logs with 600 permissions (owner read/write only)
-  # Elastic Agent needs 644 permissions (owner read/write, group/others read) to collect logs
-  vault-permissions:
-    image: alpine:latest
-    container_name: ${COMPOSE_PROJECT_NAME}_vault_permissions
-    user: root  # Required to change file permissions
-    volumes:
-      - vault-logs:/vault-logs  # Mount same volume as Vault to access log files
-    command: >
-      sh -c "
-        echo 'Waiting for Vault to create audit log files...' &&
-        sleep 10 &&
-        echo 'Fixing permissions on Vault log files...' &&
-        chmod -f 644 /vault-logs/*.log 2>/dev/null || true &&
-        echo 'Vault log permissions granted - Elastic Agent can now read audit logs'
-      "
-    restart: "no"  # Run once and exit
-    depends_on:
-      vault:
-        condition: service_started  # Wait for Vault to start creating log files
-
 
 volumes:
   loki-data:
