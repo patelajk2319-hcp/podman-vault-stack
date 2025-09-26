@@ -1,4 +1,3 @@
-# https://taskfile.dev
 version: '3'
 
 dotenv:
@@ -14,13 +13,14 @@ tasks:
   up:
     preconditions:
       - test -f .env
-      - test -f docker-compose.yml
+      - test -f podman-compose.yml
       - test -x ./scripts/elk/00_create-certs.sh
       - test -x ./scripts/elk/10_setup-users.sh
     cmds:
+      - task: ensure-podman
       - ./scripts/elk/00_create-certs.sh
       - sleep 10
-      - docker compose up -d --pull=missing
+      - podman-compose -f podman-compose.yml up -d
       - sleep 5
       - |
         echo "Grafana: http://localhost:3000"
@@ -33,9 +33,10 @@ tasks:
   vault-up:
     preconditions:
       - test -f .env
-      - test -f docker-compose.yml
+      - test -f podman-compose.yml
     cmds:
-      - docker compose up vault -d --pull=missing
+      - task: ensure-podman
+      - podman-compose -f podman-compose.yml up vault -d
       - sleep 5
       - |
         echo "Vault: http://localhost:8200"
@@ -47,7 +48,7 @@ tasks:
 
   restart:
     cmds:
-      - docker compose restart vault
+      - podman-compose -f podman-compose.yml restart vault
 
   status:
     cmds:
@@ -68,21 +69,23 @@ tasks:
   rm:
     aliases: ["clean"]
     cmds:
-      - docker compose rm -sfv
-      - docker volume rm {{.STACK_NAME }}_grafana-data
-      - docker volume rm {{.STACK_NAME }}_loki-data
-      - docker volume rm {{.STACK_NAME }}_prometheus-data
-      - docker volume rm {{.STACK_NAME }}_promtail-data
-      - docker volume rm {{.STACK_NAME }}_vault-data
-      - docker volume rm {{.STACK_NAME }}_vault-logs
-      - docker volume rm {{.STACK_NAME }}_redis-data
-      - docker volume rm {{.STACK_NAME }}_kibana-data
-      - docker volume rm {{.STACK_NAME }}_elasticsearch-data
-      - docker volume rm {{.STACK_NAME }}_vault-audit-logs
-      - docker volume rm {{.STACK_NAME }}_fleet-tokens
-      - docker volume rm {{.STACK_NAME }}_fleet-server-data
-      - docker volume rm {{.STACK_NAME }}_elastic-agent-data
+      - podman-compose -f podman-compose.yml down -v || true
+      - podman container prune -f || true
+      - podman volume rm {{.STACK_NAME}}_grafana-data || true
+      - podman volume rm {{.STACK_NAME}}_loki-data || true
+      - podman volume rm {{.STACK_NAME}}_prometheus-data || true
+      - podman volume rm {{.STACK_NAME}}_promtail-data || true
+      - podman volume rm {{.STACK_NAME}}_vault-data || true
+      - podman volume rm {{.STACK_NAME}}_vault-logs || true
+      - podman volume rm {{.STACK_NAME}}_redis-data || true
+      - podman volume rm {{.STACK_NAME}}_kibana-data || true
+      - podman volume rm {{.STACK_NAME}}_elasticsearch-data || true
+      - podman volume rm {{.STACK_NAME}}_vault-audit-logs || true
+      - podman volume rm {{.STACK_NAME}}_fleet-tokens || true
+      - podman volume rm {{.STACK_NAME}}_fleet-server-data || true
+      - podman volume rm {{.STACK_NAME}}_elastic-agent-data || true
       - rm -rf certs
+      - rm -rf fleet-tokens
     ignore_error: true
     vars:
       STACK_NAME:
@@ -99,31 +102,31 @@ tasks:
           
   logs-vault:
     cmds:
-      - docker compose logs -f vault
+      - podman-compose -f podman-compose.yml logs -f vault
 
   logs:
     cmds:
-      - docker compose logs -f
+      - podman-compose -f podman-compose.yml logs -f
 
   stop:
     cmds:
-      - docker compose stop
+      - podman-compose -f podman-compose.yml stop
 
   agent-up:
     dir: ./tfc-agent
     preconditions:
       - test -f .env
-      - test -f docker-compose.yml
+      - test -f podman-compose.yml
     cmds:
-      - docker compose up -d --pull=missing
+      - podman-compose -f podman-compose.yml up -d
 
   agent-down:
     dir: ./tfc-agent
     preconditions:
       - test -f .env
-      - test -f docker-compose.yml
+      - test -f podman-compose.yml
     cmds:
-      - docker compose stop
+      - podman-compose -f podman-compose.yml stop
 
   ui:
     cmds:
@@ -132,14 +135,15 @@ tasks:
 
   pull:
     cmds:
-      - docker compose pull
+      - podman-compose -f podman-compose.yml pull
     silent: true
 
   dev:
     preconditions:
       - test -f .env
     cmds:
-      - docker run --rm -p 8200:8200 --cap-add=IPC_LOCK -e VAULT_LICENSE=$VAULT_LICENSE hashicorp/vault-enterprise:latest server -dev -dev-root-token-id=root -dev-listen-address="0.0.0.0:8200"
+      - task: ensure-podman
+      - podman run --rm -p 8200:8200 --cap-add=IPC_LOCK -e VAULT_LICENSE=$VAULT_LICENSE docker.io/hashicorp/vault-enterprise:latest server -dev -dev-root-token-id=root -dev-listen-address="0.0.0.0:8200"
     silent: true
 
   redis:
@@ -188,3 +192,21 @@ tasks:
       - sleep 60
       - ./scripts/elk/fleet/30_vault-elk-integration.sh
       - sleep 60
+
+  # Helper task to ensure Podman machine is running (macOS)
+  ensure-podman:
+    desc: "Ensure Podman machine is running (macOS only)"
+    cmds:
+      - |
+        if [[ "$(uname)" == "Darwin" ]]; then
+          if ! podman machine list --format json 2>/dev/null | grep -q '"Running": true'; then
+            echo "🚀 Starting Podman machine..."
+            podman machine start
+            echo "✅ Podman machine started successfully"
+          else
+            echo "✅ Podman machine is already running"
+          fi
+        fi
+    platforms: [darwin]
+    internal: true
+    silent: true

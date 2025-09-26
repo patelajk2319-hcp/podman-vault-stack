@@ -84,6 +84,7 @@ FLEET_TOKEN_RESPONSE=$(curl -k -s -X POST "$KIBANA_HOST/api/fleet/service-tokens
 if echo "$FLEET_TOKEN_RESPONSE" | grep -q "value"; then
     FLEET_SERVER_TOKEN=$(echo "$FLEET_TOKEN_RESPONSE" | grep -o '"value":"[^"]*"' | cut -d'"' -f4)
     echo "$FLEET_SERVER_TOKEN" > /tokens/fleet-server-token
+    chmod 644 /tokens/fleet-server-token
     echo "Fleet Server token created and saved"
 else
     echo "Failed to create Fleet Server token"
@@ -167,6 +168,10 @@ sleep 3
 # Create Default Agent policy for regular agents
 # -----------------------
 echo "Creating Default Agent policy..."
+# -----------------------
+# Create Default Agent policy for regular agents OR get existing one
+# -----------------------
+echo "Creating Default Agent policy..."
 AGENT_POLICY_RESPONSE=$(curl -k -s -X POST "$KIBANA_HOST/api/fleet/agent_policies" \
   -H "kbn-xsrf: true" \
   -H "Content-Type: application/json" \
@@ -179,9 +184,29 @@ AGENT_POLICY_RESPONSE=$(curl -k -s -X POST "$KIBANA_HOST/api/fleet/agent_policie
     "monitoring_enabled": ["logs", "metrics"]
   }')
 
-POLICY_ID=$(echo "$AGENT_POLICY_RESPONSE" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
-echo "Created agent policy with ID: $POLICY_ID"
+echo "Agent policy response: $AGENT_POLICY_RESPONSE"
 
+# Extract policy ID from successful creation
+POLICY_ID=$(echo "$AGENT_POLICY_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+# If creation failed due to conflict, get the existing policy ID
+if [ -z "$POLICY_ID" ] && echo "$AGENT_POLICY_RESPONSE" | grep -q "409"; then
+    echo "Policy already exists, fetching existing policy..."
+    EXISTING_POLICIES=$(curl -k -s -X GET "$KIBANA_HOST/api/fleet/agent_policies" \
+      -H "kbn-xsrf: true" \
+      -u "$KIBANA_USER:$KIBANA_PASSWORD" \
+      --cacert "$CA_CERT")
+    
+    POLICY_ID=$(echo "$EXISTING_POLICIES" | grep -o '"id":"[^"]*"[^}]*"name":"Default Agent Policy"' | head -1 | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
+fi
+
+echo "Using agent policy with ID: $POLICY_ID"
+
+# Validate policy ID before proceeding
+if [ -z "$POLICY_ID" ]; then
+    echo "Failed to get policy ID"
+    exit 1
+fi
 sleep 3
 
 # -----------------------
@@ -199,6 +224,7 @@ ENROLLMENT_RESPONSE=$(curl -k -s -X POST "$KIBANA_HOST/api/fleet/enrollment-api-
 if echo "$ENROLLMENT_RESPONSE" | grep -q '"api_key"'; then
     ENROLLMENT_TOKEN=$(echo "$ENROLLMENT_RESPONSE" | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
     echo "$ENROLLMENT_TOKEN" > /tokens/enrollment-token
+    chmod 644 /tokens/enrollment-token
     echo "Enrollment token created and saved"
 else
     echo "Failed to create enrollment token"

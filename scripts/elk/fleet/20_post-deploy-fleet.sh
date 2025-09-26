@@ -31,13 +31,13 @@ check_service() {
     echo -e "${BLUE}Checking $service_name...${NC}"
     for i in $(seq 1 $max_attempts); do
         if curl -k -s --connect-timeout 5 "$url" >/dev/null 2>&1; then
-            echo -e "${GREEN}✓ $service_name is ready${NC}"
+            echo -e "${GREEN}✅ $service_name is ready${NC}"
             return 0
         fi
         echo -e "${YELLOW}   Attempt $i/$max_attempts - $service_name not ready...${NC}"
         sleep 10
     done
-    echo -e "${YELLOW}✗ $service_name failed to become ready${NC}"
+    echo -e "${YELLOW}❌ $service_name failed to become ready${NC}"
     return 1
 }
 
@@ -45,44 +45,44 @@ check_service() {
 # Check Fleet Server health
 # -----------------------
 if ! check_service "Fleet Server" "http://localhost:8220/api/status" 10; then
-    echo -e "${YELLOW}✗ Fleet Server is not responding. Check logs: docker-compose logs fleet-server${NC}"
+    echo -e "${YELLOW}❌ Fleet Server is not responding. Check logs: podman-compose -f podman-compose.yml logs fleet-server${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✓ Fleet Server is healthy${NC}"
+echo -e "${GREEN}✅ Fleet Server is healthy${NC}"
 
 # -----------------------
 # Check if Elastic Agent is already enrolled
 # -----------------------
 echo -e "${BLUE}Checking Elastic Agent enrollment status...${NC}"
-AGENT_STATUS=$(docker exec vault-database_elastic_agent elastic-agent status 2>/dev/null || echo "ERROR")
+AGENT_STATUS=$(podman exec vault-database_elastic_agent elastic-agent status 2>/dev/null || echo "ERROR")
 
 if echo "$AGENT_STATUS" | grep -q "Connected"; then
-    echo -e "${GREEN}✓ Elastic Agent is already enrolled and connected${NC}"
+    echo -e "${GREEN}✅ Elastic Agent is already enrolled and connected${NC}"
 else
     echo -e "${BLUE}Enrolling Elastic Agent...${NC}"
     
     # Retrieve the enrollment token from the shared volume
-    TOKEN=$(docker run --rm -v vault-database_fleet-tokens:/tokens alpine:latest cat /tokens/enrollment-token 2>/dev/null)
+    TOKEN=$(cat ./fleet-tokens/enrollment-token 2>/dev/null)
     
     if [ -z "$TOKEN" ]; then
-        echo -e "${YELLOW}✗ No enrollment token found${NC}"
+        echo -e "${YELLOW}❌ No enrollment token found${NC}"
         exit 1
     fi
     
     echo -e "${BLUE}Found enrollment token${NC}"
     
     # Enroll the Elastic Agent with Fleet Server
-    docker exec vault-database_elastic_agent elastic-agent enroll \
+    podman exec vault-database_elastic_agent elastic-agent enroll \
         --url=http://fleet-server:8220 \
         --enrollment-token="$TOKEN" \
         --insecure \
         --force
     
     if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✓ Elastic Agent enrolled successfully${NC}"
+        echo -e "${GREEN}✅ Elastic Agent enrolled successfully${NC}"
     else
-        echo -e "${YELLOW}✗ Failed to enroll Elastic Agent${NC}"
+        echo -e "${YELLOW}❌ Failed to enroll Elastic Agent${NC}"
         exit 1
     fi
 fi
@@ -99,13 +99,13 @@ AGENTS_RESPONSE=$(curl -k -s -X GET "https://localhost:5601/api/fleet/agents" \
 
 if echo "$AGENTS_RESPONSE" | grep -q '"status":"online"'; then
     AGENT_COUNT=$(echo "$AGENTS_RESPONSE" | grep -o '"status":"online"' | wc -l)
-    echo -e "${GREEN}✓ Found $AGENT_COUNT online agent(s) in Kibana${NC}"
+    echo -e "${GREEN}✅ Found $AGENT_COUNT online agent(s) in Kibana${NC}"
     
     # Display basic details for each agent
     echo -e "${BLUE}Agent Details:${NC}"
     echo "$AGENTS_RESPONSE" | jq -r '.list[] | "  - ID: \(.id) | Status: \(.status) | Type: \(.type) | Policy: \(.policy_id)"' 2>/dev/null || echo "  (Raw response parsing failed, but agents are online)"
 else
-    echo -e "${YELLOW}⚠ No online agents found in Kibana. This may be normal if agents are still starting up.${NC}"
+    echo -e "${YELLOW}⚠️  No online agents found in Kibana. This may be normal if agents are still starting up.${NC}"
 fi
 
 # -----------------------
@@ -121,10 +121,10 @@ echo -e "${BLUE}Final Fleet status verification...${NC}"
 
 # Check Fleet Server status inside container
 echo -e "${BLUE}Fleet Server Status:${NC}"
-if docker exec vault-database_fleet_server elastic-agent status 2>/dev/null; then
-    echo -e "${GREEN}✓ Fleet Server status check successful${NC}"
+if podman exec vault-database_fleet_server elastic-agent status 2>/dev/null; then
+    echo -e "${GREEN}✅ Fleet Server status check successful${NC}"
 else
-    echo -e "${YELLOW}⚠ Fleet Server status check failed (may be restarting)${NC}"
+    echo -e "${YELLOW}⚠️  Fleet Server status check failed (may be restarting)${NC}"
 fi
 
 echo ""
@@ -133,12 +133,12 @@ echo ""
 echo -e "${BLUE}Elastic Agent Status:${NC}"
 AGENT_STATUS_SUCCESS=false
 for i in {1..3}; do
-    if docker exec vault-database_elastic_agent elastic-agent status 2>/dev/null; then
-        echo -e "${GREEN}✓ Elastic Agent status check successful${NC}"
+    if podman exec vault-database_elastic_agent elastic-agent status 2>/dev/null; then
+        echo -e "${GREEN}✅ Elastic Agent status check successful${NC}"
         AGENT_STATUS_SUCCESS=true
         break
     else
-        echo -e "${YELLOW}⚠ Elastic Agent status check attempt $i/3: daemon may be restarting...${NC}"
+        echo -e "${YELLOW}⚠️  Elastic Agent status check attempt $i/3: daemon may be restarting...${NC}"
         if [ $i -lt 3 ]; then
             sleep 5
         fi
@@ -162,6 +162,6 @@ echo -e "${BLUE}  3. Set up log collection policies in Fleet${NC}"
 echo ""
 echo -e "${BLUE}Useful commands:${NC}"
 echo -e "${BLUE}  - Check Fleet agents: curl -k https://localhost:5601/api/fleet/agents -H 'kbn-xsrf: true' -u elastic:password123 --cacert certs/ca/ca.crt${NC}"
-echo -e "${BLUE}  - View agent logs: docker-compose logs elastic-agent${NC}"
-echo -e "${BLUE}  - View agent status: docker exec vault-database_elastic_agent elastic-agent status${NC}"
+echo -e "${BLUE}  - View agent logs: podman-compose -f podman-compose.yml logs elastic-agent${NC}"
+echo -e "${BLUE}  - View agent status: podman exec vault-database_elastic_agent elastic-agent status${NC}"
 echo -e "${BLUE}  - Fleet Server status: curl -k http://localhost:8220/api/status${NC}"

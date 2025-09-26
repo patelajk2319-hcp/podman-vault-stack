@@ -44,4 +44,6 @@ vault-init.json
 certs/
 certs/*
 ./certs/
+# Ignore fleet tokens folder
+fleet-tokens/
 vault-elk-architecture-diagram.md

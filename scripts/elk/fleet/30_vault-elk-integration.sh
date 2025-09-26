@@ -346,8 +346,8 @@ echo ""
 echo -e "${BLUE}Next steps:${NC}"
 echo -e "${BLUE}1. Wait 1-2 minutes for the agent to receive the new policy${NC}"
 echo -e "${BLUE}2. Generate Vault activity to create audit logs:${NC}"
-echo -e "${BLUE}   docker exec vault-database_vault vault kv put secret/test key=value${NC}"
-echo -e "${BLUE}   docker exec vault-database_vault vault kv get secret/test${NC}"
+echo -e "${BLUE}   podman exec vault-database_vault vault kv put secret/test key=value${NC}"
+echo -e "${BLUE}   podman exec vault-database_vault vault kv get secret/test${NC}"
 echo -e "${BLUE}3. Check logs in Kibana Discover: logs-hashicorp_vault.audit-*${NC}"
 
 if [ "$METRICS_ENABLED" = true ]; then
@@ -364,5 +364,5 @@ fi
 
 echo ""
 echo -e "${BLUE}Verification commands:${NC}"
-echo -e "${BLUE}- Check agent status: docker exec vault-database_elastic_agent elastic-agent status${NC}"
+echo -e "${BLUE}- Check agent status: podman exec vault-database_elastic_agent elastic-agent status${NC}"
 echo -e "${BLUE}- Check for indices: curl -k -u elastic:password123 'https://localhost:9200/_cat/indices/logs-vault*?v' --cacert ./certs/ca/ca.crt${NC}"

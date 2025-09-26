@@ -1,8 +1,6 @@
 #!/bin/sh
 # scripts/elk/fleet/start-fleet-server.sh
 
-# runs in docker - check docker compose file - service:fleet-server:
-
 set -e
 
 echo "Starting Fleet Server..."

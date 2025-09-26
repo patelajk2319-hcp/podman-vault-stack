@@ -5,7 +5,7 @@
 
 services:
   vault:
-    image: hashicorp/vault-enterprise:${VAULT_VERSION:-1.20-ent}
+    image: docker.io/hashicorp/vault-enterprise:${VAULT_VERSION:-1.20-ent}
     container_name: ${COMPOSE_PROJECT_NAME}_vault
     restart: unless-stopped
     ports:
@@ -17,15 +17,15 @@ services:
     cap_add:
       - IPC_LOCK
     volumes:
-      - ./volumes/vault/raft.hcl:/vault/config/raft.hcl:ro
-      - vault-data:/vault/file  # Need this volume to fudge permissions error
-      - vault-logs:/vault/logs
-      - vault-audit-logs:/vault/audit  # Volume for audit logs - accessible to elastic agent
-      - ./certs:/vault/certs:ro  # Mount certificates directory
+      - ./volumes/vault/raft.hcl:/vault/config/raft.hcl:ro,Z
+      - vault-data:/vault/file:Z  # Need this volume to fudge permissions error
+      - vault-logs:/vault/logs:Z
+      - vault-audit-logs:/vault/audit:Z  # Volume for audit logs - accessible to elastic agent
+      - ./certs:/vault/certs:ro,Z  # Mount certificates directory
       # Mount individual certificate files for easier access
-      - ./certs/ca/ca.crt:/vault/ca.crt:ro
-      - ./certs/elasticsearch/elasticsearch.crt:/vault/elasticsearch.crt:ro
-      - ./certs/elasticsearch/elasticsearch.key:/vault/elasticsearch.key:ro
+      - ./certs/ca/ca.crt:/vault/ca.crt:ro,Z
+      - ./certs/elasticsearch/elasticsearch.crt:/vault/elasticsearch.crt:ro,Z
+      - ./certs/elasticsearch/elasticsearch.key:/vault/elasticsearch.key:ro,Z
     command: server
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8200/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"]
@@ -35,16 +35,16 @@ services:
       start_period: 10s # Give Vault time to start before checking   
       
   grafana:
-    image: grafana/grafana:${GRAFANA_VERSION:-latest}
+    image: docker.io/grafana/grafana:${GRAFANA_VERSION:-latest}
     container_name: ${COMPOSE_PROJECT_NAME}_grafana
     restart: unless-stopped
     ports:
       - "3000:3000"
     volumes:
-      - ./volumes/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
-      - ./volumes/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
-      - ./volumes/grafana/vault_dashboard.json:/var/lib/grafana/dashboards/vault_dashboard.json:ro
-      - grafana-data:/var/lib/grafana
+      - ./volumes/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro,Z
+      - ./volumes/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro,Z
+      - ./volumes/grafana/vault_dashboard.json:/var/lib/grafana/dashboards/vault_dashboard.json:ro,Z
+      - grafana-data:/var/lib/grafana:Z
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_SECURITY_ADMIN_USER=admin
@@ -53,14 +53,14 @@ services:
       - loki
       
   prometheus:
-    image: prom/prometheus:${PROMETHEUS_VERSION:-latest}
+    image: docker.io/prom/prometheus:${PROMETHEUS_VERSION:-latest}
     container_name: ${COMPOSE_PROJECT_NAME}_prometheus
     restart: unless-stopped
     ports:
       - "9090:9090"
     volumes:
-      - ./volumes/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus-data:/prometheus
+      - ./volumes/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro,Z
+      - prometheus-data:/prometheus:Z
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -69,40 +69,39 @@ services:
       - '--web.enable-lifecycle'
 
   loki:
-    image: grafana/loki:${LOKI_VERSION:-latest}
+    image: docker.io/grafana/loki:${LOKI_VERSION:-latest}
     container_name: ${COMPOSE_PROJECT_NAME}_loki
     restart: unless-stopped
     ports:
       - "3100:3100"
     volumes:
-      - ./volumes/loki/loki.yml:/etc/loki/loki.yml:ro
-      - loki-data:/loki/data
-      - ./volumes/loki/loki_perm_fix.sh:/loki/loki_perm_fix.sh:ro
-#    command: -config.file=/etc/loki/loki.yml
+      - ./volumes/loki/loki.yml:/etc/loki/loki.yml:ro,Z
+      - loki-data:/loki/data:Z
+      - ./volumes/loki/loki_perm_fix.sh:/loki/loki_perm_fix.sh:ro,Z
     entrypoint: /loki/loki_perm_fix.sh
     user: root # Required for permission fix as Loki runs as user Loki by default
 
   promtail:
-    image: grafana/promtail:${PROMTAIL_VERSION:-latest}
+    image: docker.io/grafana/promtail:${PROMTAIL_VERSION:-latest}
     container_name: ${COMPOSE_PROJECT_NAME}_promtail
     restart: unless-stopped
     volumes:
-      - ./volumes/promtail/promtail.yml:/etc/promtail/promtail.yml:ro
-      - promtail-data:/promtail
-      - vault-logs:/mnt/vault-logs
+      - ./volumes/promtail/promtail.yml:/etc/promtail/promtail.yml:ro,Z
+      - promtail-data:/promtail:Z
+      - vault-logs:/mnt/vault-logs:Z
     command: -config.file=/etc/promtail/promtail.yml
     depends_on:
       - loki
 
   redis:
-    image: redis:latest
+    image: docker.io/redis:latest
     container_name: ${COMPOSE_PROJECT_NAME}_redis
     restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
-      - redis-data:/data
-      - ./config/redis/redis-users.conf:/usr/local/etc/redis/redis-users.conf
+      - redis-data:/data:Z
+      - ./config/redis/redis-users.conf:/usr/local/etc/redis/redis-users.conf:Z
     command: ["redis-server", "/usr/local/etc/redis/redis-users.conf"]
 
 # ELASTIC AND KIBANA - ELK
@@ -118,8 +117,8 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=true
       - xpack.security.enrollment.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+      #- bootstrap.memory_lock=true
       - ELASTIC_PASSWORD=password123
       
       # TLS Configuration
@@ -134,17 +133,17 @@ services:
       - xpack.security.transport.ssl.certificate=certs/elasticsearch.crt
       - xpack.security.transport.ssl.certificate_authorities=certs/ca.crt
       - xpack.security.transport.ssl.verification_mode=certificate
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
+    #ulimits:
+     # memlock:
+       # soft: -1
+       # hard: -1
     volumes:
-      - elasticsearch-data:/usr/share/elasticsearch/data
+      - elasticsearch-data:/usr/share/elasticsearch/data:Z
       # Mount certificates as read-only
-      - ./certs/ca/ca.crt:/usr/share/elasticsearch/config/certs/ca.crt:ro
-      - ./certs/ca/ca.key:/usr/share/elasticsearch/config/certs/ca.key:ro
-      - ./certs/elasticsearch/elasticsearch.crt:/usr/share/elasticsearch/config/certs/elasticsearch.crt:ro
-      - ./certs/elasticsearch/elasticsearch.key:/usr/share/elasticsearch/config/certs/elasticsearch.key:ro
+      - ./certs/ca/ca.crt:/usr/share/elasticsearch/config/certs/ca.crt:ro,Z
+      - ./certs/ca/ca.key:/usr/share/elasticsearch/config/certs/ca.key:ro,Z
+      - ./certs/elasticsearch/elasticsearch.crt:/usr/share/elasticsearch/config/certs/elasticsearch.crt:ro,Z
+      - ./certs/elasticsearch/elasticsearch.key:/usr/share/elasticsearch/config/certs/elasticsearch.key:ro,Z
     healthcheck:
       test: ["CMD-SHELL", "curl -s --cacert config/certs/ca.crt -u elastic:password123 https://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
@@ -154,14 +153,14 @@ services:
 
    # kibana init service - Creates users automatically
   kibana-init:
-    image: curlimages/curl:latest
+    image: docker.io/curlimages/curl:latest
     container_name: ${COMPOSE_PROJECT_NAME}_kibana-init
     depends_on:
       elasticsearch:
         condition: service_healthy
     volumes:
-      - ./scripts/elk/10_setup-users.sh:/setup.sh:ro
-      - ./certs/ca/ca.crt:/certs/ca.crt:ro
+      - ./scripts/elk/10_setup-users.sh:/setup.sh:ro,Z
+      - ./certs/ca/ca.crt:/certs/ca.crt:ro,Z
     command: ["/bin/sh", "/setup.sh"]
     restart: "no"          
 
@@ -192,11 +191,11 @@ services:
       - XPACK_REPORTING_ENCRYPTIONKEY=fhjskloppd678ehkdfdlliverpoolfcr
       - XPACK_SECURITY_ENCRYPTIONKEY=fhjskloppd678ehkdfdlliverpoolfcr
     volumes:
-      - kibana-data:/usr/share/kibana/data
+      - kibana-data:/usr/share/kibana/data:Z
       # Mount certificates as read-only
-      - ./certs/ca/ca.crt:/usr/share/kibana/config/certs/ca.crt:ro
-      - ./certs/kibana/kibana.crt:/usr/share/kibana/config/certs/kibana.crt:ro
-      - ./certs/kibana/kibana.key:/usr/share/kibana/config/certs/kibana.key:ro    
+      - ./certs/ca/ca.crt:/usr/share/kibana/config/certs/ca.crt:ro,Z
+      - ./certs/kibana/kibana.crt:/usr/share/kibana/config/certs/kibana.crt:ro,Z
+      - ./certs/kibana/kibana.key:/usr/share/kibana/config/certs/kibana.key:ro,Z    
       # Make sure the users have been created successfully
     depends_on:
       kibana-init:
@@ -207,10 +206,9 @@ services:
       timeout: 10s
       retries: 5
       start_period: 120s
-
   # Fleet initialization service - runs once to set up Fleet
   fleet-init:
-    image: curlimages/curl:latest
+    image: docker.io/curlimages/curl:latest
     container_name: ${COMPOSE_PROJECT_NAME}_fleet_init
     user: root  # Run as root to fix permission issues
     depends_on:
@@ -219,10 +217,10 @@ services:
       kibana:
         condition: service_healthy
     volumes:
-      - ./scripts/elk/fleet/00_init-fleet.sh:/00_init-fleet.sh:ro
-      - ./certs/ca/ca.crt:/certs/ca.crt:ro
-      - fleet-tokens:/tokens  # Shared volume for tokens
-    command: ["/bin/sh", "/00_init-fleet.sh"]
+      - ./scripts/elk/fleet/00_init-fleet.sh:/00_init-fleet.sh:ro,Z
+      - ./certs/ca/ca.crt:/certs/ca.crt:ro,Z
+      - ./fleet-tokens:/tokens:Z  # Shared volume for tokens
+    command: ["/bin/sh", "-c", "chmod 777 /tokens && /bin/sh /00_init-fleet.sh"] 
     restart: "no"
     environment:
       - KIBANA_HOST=https://kibana:5601
@@ -243,10 +241,10 @@ services:
       fleet-init:
         condition: service_completed_successfully
     volumes:
-      - ./certs/ca/ca.crt:/certs/ca.crt:ro
-      - fleet-server-data:/usr/share/elastic-agent/state
-      - fleet-tokens:/tokens:ro  # Read tokens from shared volume
-      - ./scripts/elk/fleet/10_start-fleet-server.sh:/10_start-fleet-server.sh:ro
+      - ./certs/ca/ca.crt:/certs/ca.crt:ro,Z
+      - fleet-server-data:/usr/share/elastic-agent/state:Z
+      - ./fleet-tokens:/tokens:ro,Z # Read tokens from shared volume
+      - ./scripts/elk/fleet/10_start-fleet-server.sh:/10_start-fleet-server.sh:ro,Z
     entrypoint: ["/bin/sh", "/10_start-fleet-server.sh"]
     environment:
       - FLEET_SERVER_ENABLE=1
@@ -274,14 +272,14 @@ services:
       fleet-server:
         condition: service_started
     volumes:
-      - elastic-agent-data:/usr/share/elastic-agent/state
-      - vault-logs:/mnt/vault-logs:ro         # Vault operational logs
-      - fleet-tokens:/tokens:ro
-      - ./certs/ca/ca.crt:/certs/ca.crt:ro
+      - elastic-agent-data:/usr/share/elastic-agent/state:Z
+      - vault-logs:/mnt/vault-logs:ro,Z         # Vault operational logs
+      - fleet-tokens:/tokens:ro,Z
+      - ./certs/ca/ca.crt:/certs/ca.crt:ro,Z
     environment:
       - FLEET_URL=http://fleet-server:8220
       - FLEET_INSECURE=true
-      - ELASTIC_AGENT_LOG_LEVEL=debug  # ADDED: For better debugging
+      - ELASTIC_AGENT_LOG_LEVEL=debug  # ADDED: For better debugging      
 
 volumes:
   loki-data:
