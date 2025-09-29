@@ -17,15 +17,14 @@ services:
     cap_add:
       - IPC_LOCK
     volumes:
-      - ./volumes/vault/raft.hcl:/vault/config/raft.hcl:ro,Z
-      - vault-data:/vault/file:Z  # Need this volume to fudge permissions error
-      - vault-logs:/vault/logs:Z
-      - vault-audit-logs:/vault/audit:Z  # Volume for audit logs - accessible to elastic agent
-      - ./certs:/vault/certs:ro,Z  # Mount certificates directory
+      - ./volumes/vault/raft.hcl:/vault/config/raft.hcl:ro
+      - vault-data:/vault/file  # Need this volume to fudge permissions error
+      - vault-logs:/vault/logs
+      - ./certs:/vault/certs:ro  # Mount certificates directory
       # Mount individual certificate files for easier access
-      - ./certs/ca/ca.crt:/vault/ca.crt:ro,Z
-      - ./certs/elasticsearch/elasticsearch.crt:/vault/elasticsearch.crt:ro,Z
-      - ./certs/elasticsearch/elasticsearch.key:/vault/elasticsearch.key:ro,Z
+      - ./certs/ca/ca.crt:/vault/ca.crt:ro
+      - ./certs/elasticsearch/elasticsearch.crt:/vault/elasticsearch.crt:ro
+      - ./certs/elasticsearch/elasticsearch.key:/vault/elasticsearch.key:ro
     command: server
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8200/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"]
@@ -41,10 +40,10 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./volumes/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro,Z
-      - ./volumes/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro,Z
-      - ./volumes/grafana/vault_dashboard.json:/var/lib/grafana/dashboards/vault_dashboard.json:ro,Z
-      - grafana-data:/var/lib/grafana:Z
+      - ./volumes/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./volumes/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./volumes/grafana/vault_dashboard.json:/var/lib/grafana/dashboards/vault_dashboard.json:ro
+      - grafana-data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_SECURITY_ADMIN_USER=admin
@@ -59,8 +58,8 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./volumes/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro,Z
-      - prometheus-data:/prometheus:Z
+      - ./volumes/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -75,9 +74,9 @@ services:
     ports:
       - "3100:3100"
     volumes:
-      - ./volumes/loki/loki.yml:/etc/loki/loki.yml:ro,Z
-      - loki-data:/loki/data:Z
-      - ./volumes/loki/loki_perm_fix.sh:/loki/loki_perm_fix.sh:ro,Z
+      - ./volumes/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki/data
+      - ./volumes/loki/loki_perm_fix.sh:/loki/loki_perm_fix.sh:ro
     entrypoint: /loki/loki_perm_fix.sh
     user: root # Required for permission fix as Loki runs as user Loki by default
 
@@ -86,9 +85,9 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}_promtail
     restart: unless-stopped
     volumes:
-      - ./volumes/promtail/promtail.yml:/etc/promtail/promtail.yml:ro,Z
-      - promtail-data:/promtail:Z
-      - vault-logs:/mnt/vault-logs:Z
+      - ./volumes/promtail/promtail.yml:/etc/promtail/promtail.yml:ro
+      - promtail-data:/promtail
+      - vault-logs:/mnt/vault-logs
     command: -config.file=/etc/promtail/promtail.yml
     depends_on:
       - loki
@@ -100,8 +99,8 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - redis-data:/data:Z
-      - ./config/redis/redis-users.conf:/usr/local/etc/redis/redis-users.conf:Z
+      - redis-data:/data
+      - ./config/redis/redis-users.conf:/usr/local/etc/redis/redis-users.conf
     command: ["redis-server", "/usr/local/etc/redis/redis-users.conf"]
 
 # ELASTIC AND KIBANA - ELK
@@ -138,12 +137,12 @@ services:
        # soft: -1
        # hard: -1
     volumes:
-      - elasticsearch-data:/usr/share/elasticsearch/data:Z
+      - elasticsearch-data:/usr/share/elasticsearch/data
       # Mount certificates as read-only
-      - ./certs/ca/ca.crt:/usr/share/elasticsearch/config/certs/ca.crt:ro,Z
-      - ./certs/ca/ca.key:/usr/share/elasticsearch/config/certs/ca.key:ro,Z
-      - ./certs/elasticsearch/elasticsearch.crt:/usr/share/elasticsearch/config/certs/elasticsearch.crt:ro,Z
-      - ./certs/elasticsearch/elasticsearch.key:/usr/share/elasticsearch/config/certs/elasticsearch.key:ro,Z
+      - ./certs/ca/ca.crt:/usr/share/elasticsearch/config/certs/ca.crt:ro
+      - ./certs/ca/ca.key:/usr/share/elasticsearch/config/certs/ca.key:ro
+      - ./certs/elasticsearch/elasticsearch.crt:/usr/share/elasticsearch/config/certs/elasticsearch.crt:ro
+      - ./certs/elasticsearch/elasticsearch.key:/usr/share/elasticsearch/config/certs/elasticsearch.key:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -s --cacert config/certs/ca.crt -u elastic:password123 https://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
@@ -191,11 +190,11 @@ services:
       - XPACK_REPORTING_ENCRYPTIONKEY=fhjskloppd678ehkdfdlliverpoolfcr
       - XPACK_SECURITY_ENCRYPTIONKEY=fhjskloppd678ehkdfdlliverpoolfcr
     volumes:
-      - kibana-data:/usr/share/kibana/data:Z
+      - kibana-data:/usr/share/kibana/data
       # Mount certificates as read-only
-      - ./certs/ca/ca.crt:/usr/share/kibana/config/certs/ca.crt:ro,Z
-      - ./certs/kibana/kibana.crt:/usr/share/kibana/config/certs/kibana.crt:ro,Z
-      - ./certs/kibana/kibana.key:/usr/share/kibana/config/certs/kibana.key:ro,Z    
+      - ./certs/ca/ca.crt:/usr/share/kibana/config/certs/ca.crt:ro
+      - ./certs/kibana/kibana.crt:/usr/share/kibana/config/certs/kibana.crt:ro
+      - ./certs/kibana/kibana.key:/usr/share/kibana/config/certs/kibana.key:ro   
       # Make sure the users have been created successfully
     depends_on:
       kibana-init:
@@ -219,7 +218,7 @@ services:
     volumes:
       - ./scripts/elk/fleet/00_init-fleet.sh:/00_init-fleet.sh:ro,Z
       - ./certs/ca/ca.crt:/certs/ca.crt:ro,Z
-      - ./fleet-tokens:/tokens:Z  # Shared volume for tokens
+      - ./fleet-tokens:/tokens # Shared volume for tokens
     command: ["/bin/sh", "-c", "chmod 777 /tokens && /bin/sh /00_init-fleet.sh"] 
     restart: "no"
     environment:
@@ -242,9 +241,9 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./certs/ca/ca.crt:/certs/ca.crt:ro,Z
-      - fleet-server-data:/usr/share/elastic-agent/state:Z
+      - fleet-server-data:/usr/share/elastic-agent/state
       - ./fleet-tokens:/tokens:ro,Z # Read tokens from shared volume
-      - ./scripts/elk/fleet/10_start-fleet-server.sh:/10_start-fleet-server.sh:ro,Z
+      - ./scripts/elk/fleet/10_start-fleet-server.sh:/10_start-fleet-server.sh:ro
     entrypoint: ["/bin/sh", "/10_start-fleet-server.sh"]
     environment:
       - FLEET_SERVER_ENABLE=1
@@ -272,10 +271,10 @@ services:
       fleet-server:
         condition: service_started
     volumes:
-      - elastic-agent-data:/usr/share/elastic-agent/state:Z
-      - vault-logs:/mnt/vault-logs:ro,Z         # Vault operational logs
+      - elastic-agent-data:/usr/share/elastic-agent/state
+      - vault-logs:/mnt/vault-logs:ro         # Vault operational logs
       - fleet-tokens:/tokens:ro,Z
-      - ./certs/ca/ca.crt:/certs/ca.crt:ro,Z
+      - ./certs/ca/ca.crt:/certs/ca.crt:ro
     environment:
       - FLEET_URL=http://fleet-server:8220
       - FLEET_INSECURE=true
@@ -288,7 +287,6 @@ volumes:
   promtail-data:
   vault-data:
   vault-logs:
-  vault-audit-logs:  # Shared volume for Vault audit logs between Vault and Elastic Agent
   redis-data:
   elasticsearch-data:
   kibana-data:
