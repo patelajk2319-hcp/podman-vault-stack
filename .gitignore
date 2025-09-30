@@ -40,6 +40,11 @@ terraform.rc
 .idea/
 vault-init.json
 
+# Ignore user-specific dot folders
+.*
+!.gitignore
+!.github/
+
 # Ignore certs folder
 certs/
 certs/*
