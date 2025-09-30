@@ -3,7 +3,7 @@
 # Summary of what this script accomplishes:
 # 1. Creates a Certificate Authority (CA) that acts as a trusted root
 # 2. Generates TLS certificates for Elasticsearch and Kibana signed by the CA  
-# 3. Generates TLS certificate for Fleet Server (NEW - for Vault integration)
+# 3. Generates TLS certificate for Fleet Server - For Vault Integration
 # 4. Configures certificates with proper Subject Alternative Names for flexible hostname/IP usage
 # 5. Sets secure file permissions to protect private keys
 # 6. Cleans up temporary files for a tidy final result
@@ -119,7 +119,7 @@ openssl x509 -req -in certs/kibana/kibana.csr \
 echo -e "${GREEN}✅ Kibana certificate created${NC}"
 
 echo ""
-echo -e "${BLUE}🚀 Generating Fleet Server Certificate (NEW - for Vault integration)${NC}"
+echo -e "${BLUE}🚀 Generating Fleet Server Certificate for Vault integration${NC}"
 
 # Generate Fleet Server private key
 openssl genrsa -out certs/fleet-server/fleet-server.key $CERT_KEY_SIZE
