@@ -71,11 +71,11 @@ tasks:
     cmds:
       - podman-compose -f podman-compose.yml down -v || true
       - podman container prune -f || true
-      - rm -rf certs
-      - rm -rf fleet-tokens
-      - find labs -type d -name ".terraform" -exec rm -rf {} + 2>/dev/null || true
-      - find labs -type f -name "*.tfstate*" -exec rm -f {} + 2>/dev/null || true
-      - find labs -type f -name ".terraform.lock.hcl" -exec rm -f {} + 2>/dev/null || true
+      - echo "Deleted certs" && rm -rf certs
+      - echo "Deleted fleet-tokens" && rm -rf fleet-tokens
+      - echo "Deleted .terraform folders" && find . -type d -name ".terraform" -exec rm -rf {} + 2>/dev/null || true
+      - echo "Deleted .tfstate files" && find . -type f -name "*.tfstate*" -exec rm -f {} + 2>/dev/null || true
+      - echo "Deleted terraform lock files" && find . -type f -name ".terraform.lock.hcl" -exec rm -f {} + 2>/dev/null || true
     ignore_error: true
 
   benchmark:
