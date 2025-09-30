@@ -1,7 +1,7 @@
-# docker-vault-database-stack
+# podman-vault-stack
 
 ## Description
-This repository contains a docker compose stack with the following services:
+This repository contains a Podman Compose stack with the following services:
 - grafana
 - loki
 - prometheus
@@ -14,9 +14,11 @@ This repository contains a docker compose stack with the following services:
 
 ## Pre-requisites
 
-Install `Docker` with the following command:
+Install `Podman` and `podman-compose` with the following commands:
 ```shell
-  brew install docker
+  brew install podman podman-compose
+  podman machine init
+  podman machine start
 ```
 Install `taskfile` and `jq` with the following command:
 ```shell
@@ -32,7 +34,7 @@ Clone git repository:
 git clone https://github.com/patelajk2319-hcp/vault-database.git
 ```
 
-Create a `.env` file in the root folder with the following content:
+**IMPORTANT:** Create a `.env` file in the root folder (this file is required for the stack to work). Add the following content:
 ```shell
 export VAULT_ADDR=http://127.0.0.1:8200
 export VAULT_LICENSE=INSERT_LICENSE_HERE
@@ -41,7 +43,7 @@ export VAULT_LICENSE=INSERT_LICENSE_HERE
 If you do not have an enterprise license, you can request a trial license from the following link:
 https://www.hashicorp.com/products/vault/trial
 
-Alternatively, you can use the Vault BSL container image by changing the [docker-compose.yml](docker-compose.yml) file to use the `hashicorp/vault-enterprise:1.19` image.
+Alternatively, you can use the Vault BSL container image by changing the [podman-compose.yml](podman-compose.yml) file to use the `hashicorp/vault-enterprise:1.19` image.
 
 If you do not have a DUO licence, you can request a trial from the following link:
 https://signup.duo.com/
@@ -49,7 +51,7 @@ https://signup.duo.com/
 ## Usage
 [Taskfile.yml](Taskfile.yml) contains automation commands to manage the stack.
 
-Launch the docker compose stack with the following command:
+Launch the Podman Compose stack with the following command:
 ```bash
 task up
 ```
@@ -98,11 +100,11 @@ Execute DUO Terraform to create a userpass user with MFA, you will need to have 
 ```shell
 task duo
 ```
-To enable log aggregation so that Vault logs are sent to Elasticsearch (you must have run task elk and have Elastic and Kibana running before running this command)
+To enable log aggregation so that Vault logs are sent to Elasticsearch.
 ```shell
 task audit-logs
 ```
-To completely delete the Docker compose stack, e.g. there is a need to start from scratch
+To completely delete the Podman Compose stack, e.g. there is a need to start from scratch
 ```shell
 task rm
 ```

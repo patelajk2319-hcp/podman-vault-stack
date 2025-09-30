@@ -71,25 +71,9 @@ tasks:
     cmds:
       - podman-compose -f podman-compose.yml down -v || true
       - podman container prune -f || true
-      - podman volume rm {{.STACK_NAME}}_grafana-data || true
-      - podman volume rm {{.STACK_NAME}}_loki-data || true
-      - podman volume rm {{.STACK_NAME}}_prometheus-data || true
-      - podman volume rm {{.STACK_NAME}}_promtail-data || true
-      - podman volume rm {{.STACK_NAME}}_vault-data || true
-      - podman volume rm {{.STACK_NAME}}_vault-logs || true
-      - podman volume rm {{.STACK_NAME}}_redis-data || true
-      - podman volume rm {{.STACK_NAME}}_kibana-data || true
-      - podman volume rm {{.STACK_NAME}}_elasticsearch-data || true
-      - podman volume rm {{.STACK_NAME}}_vault-audit-logs || true
-      - podman volume rm {{.STACK_NAME}}_fleet-tokens || true
-      - podman volume rm {{.STACK_NAME}}_fleet-server-data || true
-      - podman volume rm {{.STACK_NAME}}_elastic-agent-data || true
       - rm -rf certs
       - rm -rf fleet-tokens
     ignore_error: true
-    vars:
-      STACK_NAME:
-        sh: basename "`pwd`"
 
   benchmark:
     cmds:
@@ -195,6 +179,7 @@ tasks:
 
   # Helper task to ensure Podman machine is running (macOS)
   ensure-podman:
+    aliases: ["podman"]
     desc: "Ensure Podman machine is running (macOS only)"
     cmds:
       - |

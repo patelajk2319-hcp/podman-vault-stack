@@ -13,6 +13,13 @@ YELLOW='\033[1;33m'   # Yellow text for warnings
 BLUE='\033[0;34m'     # Blue text for informational messages
 NC='\033[0m'          # No Color (reset text color to default)
 
+# -----------------------
+# Determine stack name from current directory
+# -----------------------
+STACK_NAME=$(basename "$(pwd)")
+ELASTIC_AGENT_CONTAINER="${STACK_NAME}_elastic_agent"
+FLEET_SERVER_CONTAINER="${STACK_NAME}_fleet_server"
+
 echo -e "${BLUE}Starting post-deployment Fleet configuration...${NC}"
 
 # -----------------------
@@ -55,7 +62,7 @@ echo -e "${GREEN}✅ Fleet Server is healthy${NC}"
 # Check if Elastic Agent is already enrolled
 # -----------------------
 echo -e "${BLUE}Checking Elastic Agent enrollment status...${NC}"
-AGENT_STATUS=$(podman exec vault-database_elastic_agent elastic-agent status 2>/dev/null || echo "ERROR")
+AGENT_STATUS=$(podman exec "$ELASTIC_AGENT_CONTAINER" elastic-agent status 2>/dev/null || echo "ERROR")
 
 if echo "$AGENT_STATUS" | grep -q "Connected"; then
     echo -e "${GREEN}✅ Elastic Agent is already enrolled and connected${NC}"
@@ -73,7 +80,7 @@ else
     echo -e "${BLUE}Found enrollment token${NC}"
     
     # Enroll the Elastic Agent with Fleet Server
-    podman exec vault-database_elastic_agent elastic-agent enroll \
+    podman exec "$ELASTIC_AGENT_CONTAINER" elastic-agent enroll \
         --url=http://fleet-server:8220 \
         --enrollment-token="$TOKEN" \
         --insecure \
@@ -121,7 +128,7 @@ echo -e "${BLUE}Final Fleet status verification...${NC}"
 
 # Check Fleet Server status inside container
 echo -e "${BLUE}Fleet Server Status:${NC}"
-if podman exec vault-database_fleet_server elastic-agent status 2>/dev/null; then
+if podman exec "$FLEET_SERVER_CONTAINER" elastic-agent status 2>/dev/null; then
     echo -e "${GREEN}✅ Fleet Server status check successful${NC}"
 else
     echo -e "${YELLOW}⚠️  Fleet Server status check failed (may be restarting)${NC}"
@@ -133,7 +140,7 @@ echo ""
 echo -e "${BLUE}Elastic Agent Status:${NC}"
 AGENT_STATUS_SUCCESS=false
 for i in {1..3}; do
-    if podman exec vault-database_elastic_agent elastic-agent status 2>/dev/null; then
+    if podman exec "$ELASTIC_AGENT_CONTAINER" elastic-agent status 2>/dev/null; then
         echo -e "${GREEN}✅ Elastic Agent status check successful${NC}"
         AGENT_STATUS_SUCCESS=true
         break
@@ -163,5 +170,5 @@ echo ""
 echo -e "${BLUE}Useful commands:${NC}"
 echo -e "${BLUE}  - Check Fleet agents: curl -k https://localhost:5601/api/fleet/agents -H 'kbn-xsrf: true' -u elastic:password123 --cacert certs/ca/ca.crt${NC}"
 echo -e "${BLUE}  - View agent logs: podman-compose -f podman-compose.yml logs elastic-agent${NC}"
-echo -e "${BLUE}  - View agent status: podman exec vault-database_elastic_agent elastic-agent status${NC}"
+echo -e "${BLUE}  - View agent status: podman exec ${ELASTIC_AGENT_CONTAINER} elastic-agent status${NC}"
 echo -e "${BLUE}  - Fleet Server status: curl -k http://localhost:8220/api/status${NC}"

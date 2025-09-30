@@ -11,6 +11,11 @@ YELLOW='\033[1;33m'   # Yellow text for warnings
 BLUE='\033[0;34m'     # Blue text for informational messages
 NC='\033[0m'          # No Color - resets text color to default
 
+# Determine stack name from current directory
+STACK_NAME=$(basename "$(pwd)")
+VAULT_CONTAINER="${STACK_NAME}_vault"
+ELASTIC_AGENT_CONTAINER="${STACK_NAME}_elastic_agent"
+
 # Source .env file if it exists to get VAULT_TOKEN
 if [ -f ".env" ]; then
     echo -e "${BLUE}Loading environment variables from .env file...${NC}"
@@ -346,8 +351,8 @@ echo ""
 echo -e "${BLUE}Next steps:${NC}"
 echo -e "${BLUE}1. Wait 1-2 minutes for the agent to receive the new policy${NC}"
 echo -e "${BLUE}2. Generate Vault activity to create audit logs:${NC}"
-echo -e "${BLUE}   podman exec vault-database_vault vault kv put secret/test key=value${NC}"
-echo -e "${BLUE}   podman exec vault-database_vault vault kv get secret/test${NC}"
+echo -e "${BLUE}   podman exec ${VAULT_CONTAINER} vault kv put secret/test key=value${NC}"
+echo -e "${BLUE}   podman exec ${VAULT_CONTAINER} vault kv get secret/test${NC}"
 echo -e "${BLUE}3. Check logs in Kibana Discover: logs-hashicorp_vault.audit-*${NC}"
 
 if [ "$METRICS_ENABLED" = true ]; then
@@ -364,5 +369,5 @@ fi
 
 echo ""
 echo -e "${BLUE}Verification commands:${NC}"
-echo -e "${BLUE}- Check agent status: podman exec vault-database_elastic_agent elastic-agent status${NC}"
+echo -e "${BLUE}- Check agent status: podman exec ${ELASTIC_AGENT_CONTAINER} elastic-agent status${NC}"
 echo -e "${BLUE}- Check for indices: curl -k -u elastic:password123 'https://localhost:9200/_cat/indices/logs-vault*?v' --cacert ./certs/ca/ca.crt${NC}"
