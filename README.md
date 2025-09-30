@@ -31,7 +31,7 @@ Install `terraform` with the following command:
 
 Clone git repository:
 ```shell
-git clone https://github.com/patelajk2319-hcp/vault-database.git
+git clone https://github.com/patelajk2319-hcp/podman-vault-stack.git
 ```
 
 **IMPORTANT:** Create a `.env` file in the root folder (this file is required for the stack to work). Add the following content:
